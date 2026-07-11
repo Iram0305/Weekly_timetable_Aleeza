@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Timetable</title>
+<style>
+  :root{
+    --ink:#1c2321;
+    --paper:#f6f4ee;
+    --paper2:#ece8dd;
+    --line: #d8d2c2;
+    --accent:#3a6b5e;      /* deep pine */
+    --accent2:#c26b3e;     /* rust/clay for class-specific */
+    --accent3:#8a6d3b;     /* ochre for extra */
+    --break:#b8b0a0;
+    --holiday:#a85c50;
+    --free:#eae6da;
+    --white:#fffdf9;
+    --shadow: 0 1px 0 rgba(0,0,0,0.04);
+    --radius: 10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family: 'Iowan Old Style','Palatino Linotype', Georgia, serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px;}
+
+  header.top{
+    display:flex;flex-direction:column;gap:4px;
+    padding-bottom:16px;margin-bottom:18px;
+    border-bottom:2px solid var(--ink);
+  }
+  .eyebrow{
+    font-family: 'Courier New', monospace;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);font-weight:700;
+  }
+  h1{
+    font-size:clamp(1.5rem,4vw,2.1rem);
+    margin:2px 0 0;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+  .sub{
+    font-family:'Courier New',monospace;
+    font-size:12.5px;color:#555; margin-top:4px;
+  }
+
+  /* Section toggle */
+  .toggle{
+    display:flex;gap:0;
+    border:1.5px solid var(--ink);
+    border-radius:999px;
+    overflow:hidden;
+    width:max-content;
+    margin:16px 0 20px;
+    background:var(--white);
+  }
+  .toggle button{
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    padding:9px 22px;
+    border:none;
+    background:transparent;
+    color:var(--ink);
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .toggle button.active{
+    background:var(--ink);
+    color:var(--paper);
+  }
+
+  /* Day pills for mobile nav */
+  .daynav{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding-bottom:6px;
+    margin-bottom:14px;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .daynav::-webkit-scrollbar{display:none;}
+  .daynav button{
+    flex:0 0 auto;
+    font-family:'Courier New',monospace;
+    font-size:12px;
+    letter-spacing:.03em;
+    padding:8px 14px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:var(--white);
+    color:var(--ink);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .daynav button.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:var(--white);
+  }
+  .daynav button[disabled]{
+    opacity:.4;
+  }
+
+  /* Today badge */
+  .todaytag{
+    display:inline-block;
+    font-family:'Courier New',monospace;
+    font-size:10px;
+    background:var(--accent2);
+    color:white;
+    padding:1px 6px;
+    border-radius:5px;
+    margin-left:6px;
+    vertical-align:middle;
+    letter-spacing:.05em;
+  }
+
+  /* ===== Mobile: agenda/day view ===== */
+  .day-view{display:block;}
+  .day-header{
+    font-size:1.15rem;font-weight:700;margin:2px 0 12px;
+    display:flex;align-items:baseline;gap:6px;
+  }
+  .day-window{
+    font-family:'Courier New',monospace;font-size:13px;color:#555;font-weight:700;
+  }
+  .agenda{
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .slot{
+    display:flex;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--white);
+    overflow:hidden;
+    box-shadow:var(--shadow);
+  }
+  .slot .time{
+    flex:0 0 76px;
+    padding:10px 6px;
+    font-family:'Courier New',monospace;
+    font-weight:700;
+    color:#333;
+    border-right:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;
+    background:var(--paper2);
+    line-height:1.3;
+  }
+  .slot .time .t-start{font-size:14px;}
+  .slot .time .t-sep{font-size:9px;color:#888;margin:1px 0;}
+  .slot .time .t-end{font-size:14px;}
+  .slot .content{
+    flex:1;
+    padding:12px 14px;
+  }
+  .slot .subj{
+    font-weight:800;font-size:18px;
+  }
+  .slot .meta{
+    font-family:'Courier New',monospace;
+    font-size:13.5px;
+    font-weight:700;
+    color:#3a3a3a;
+    margin-top:4px;
+  }
+  .slot.type-common{border-left:5px solid var(--accent);}
+  .slot.type-specific{border-left:5px solid var(--accent2);}
+  .slot.type-break{border-left:5px solid var(--break); background:var(--free);}
+  .slot.type-break .subj{color:#6b6558;}
+  .slot.type-holiday{border-left:5px solid var(--holiday); background:#f4e9e7;}
+  .slot.type-free .subj{color:#999;font-weight:400;font-style:italic;}
+  .slot.type-extra{border-left:5px solid var(--accent3);}
+
+  .empty-note{
+    font-family:'Courier New',monospace;
+    font-size:13px;color:#888;text-align:center;padding:30px 0;
+  }
+
+  /* ===== Desktop grid ===== */
+  .grid-view{display:none;}
+  .grid-scroll{overflow-x:auto;border:1px solid var(--line); border-radius:var(--radius); background:var(--white);}
+  table.grid{
+    border-collapse:separate;
+    border-spacing:0;
+    width:100%;
+    min-width:820px;
+  }
+  table.grid th, table.grid td{
+    border-right:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+    padding:0;
+    vertical-align:top;
+  }
+  table.grid th{
+    border-top:1px solid var(--line);
+  }
+  table.grid th:first-child, table.grid td:first-child{
+    border-left:1px solid var(--line);
+  }
+  table.grid th{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Courier New',monospace;
+    font-size:12px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    padding:10px 8px;
+    text-align:center;
+    position:sticky;top:0;
+  }
+  table.grid th.timecol{
+    width:90px;
+    position:sticky;
+    left:0;
+    z-index:3;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+  }
+  table.grid td.timecell{
+    font-family:'Courier New',monospace;
+    font-size:12.5px;
+    font-weight:700;
+    color:#333;
+    text-align:center;
+    padding:8px 4px;
+    background:var(--paper2);
+    white-space:nowrap;
+    position:sticky;
+    left:0;
+    z-index:2;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+  }
+  .cell-inner{
+    min-height:64px;
+    padding:8px 9px;
+    font-size:12.5px;
+    display:flex;flex-direction:column;justify-content:center;gap:3px;
+    box-sizing:border-box;
+  }
+  .cell-inner .csubj{font-weight:800;font-size:14px;}
+  .cell-inner .cmeta{font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:#3a3a3a;}
+  td.type-common{border-left:4px solid var(--accent);}
+  td.type-specific{border-left:4px solid var(--accent2);}
+  td.type-break{border-left:4px solid var(--break); background:var(--free);}
+  td.type-break .csubj{color:#6b6558;font-weight:600;font-size:11.5px;}
+  td.type-holiday{border-left:4px solid var(--holiday); background:#f4e9e7;}
+  td.type-free .cell-inner .csubj{color:#bbb;}
+  td.type-extra{border-left:4px solid var(--accent3);}
+  td.today-col{background:#fbf6ea;}
+
+  @media (min-width: 860px){
+    .daynav{display:none;}
+  }
+  .day-view.hidden, .grid-view.hidden{display:none !important;}
+  .day-view.shown{display:block;}
+  .grid-view.shown{display:block;}
+
+  .toggle-row{
+    display:flex;flex-wrap:wrap;gap:10px;
+    margin:16px 0 20px;
+  }
+  .toggle-row .toggle{margin:0;}
+
+  /* Legend + faculty */
+  .legend-wrap{
+    margin-top:28px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:18px;
+  }
+  @media (min-width:700px){
+    .legend-wrap{grid-template-columns:1fr 1fr;}
+  }
+  .card{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 18px;
+  }
+  .card h3{
+    margin:0 0 10px;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-family:'Courier New',monospace;
+    color:var(--accent);
+  }
+  .legend-item{
+    display:flex;align-items:center;gap:8px;
+    font-size:13px;padding:4px 0;
+  }
+  .swatch{width:12px;height:12px;border-radius:3px;flex:0 0 auto;}
+  .sw-common{background:var(--accent);}
+  .sw-specific{background:var(--accent2);}
+  .sw-break{background:var(--break);}
+  .sw-extra{background:var(--accent3);}
+  .sw-holiday{background:var(--holiday);}
+  .sw-free{background:#ccc;}
+
+  table.faculty{width:100%;border-collapse:collapse;font-size:12.5px;}
+  table.faculty th{
+    text-align:left;font-family:'Courier New',monospace;font-size:10.5px;
+    text-transform:uppercase;color:#888;padding:4px 6px;border-bottom:1px solid var(--line);
+  }
+  table.faculty td{padding:6px 6px;border-bottom:1px solid #eee;}
+  table.faculty td.code{font-weight:700;color:var(--accent);}
+
+  footer{
+    text-align:center;font-family:'Courier New',monospace;
+    font-size:11px;color:#999;margin-top:34px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">Diploma in Computer Science &amp; Engineering — Sem III · Mumbai Campus</div>
+    <h1>Weekly Timetable</h1>
+    <div class="sub">w.e.f. 13 July 2026 · Rev 0</div>
+  </header>
+
+  <div class="toggle-row">
+    <div class="toggle" id="batchToggle">
+      <button data-batch="B1" class="active">Batch B1</button>
+      <button data-batch="B2">Batch B2</button>
+    </div>
+    <div class="toggle" id="viewToggle">
+      <button data-view="day" class="active">Day view</button>
+      <button data-view="week">Week view</button>
+    </div>
+  </div>
+
+  <div class="daynav" id="dayNav"></div>
+
+  <!-- MOBILE AGENDA VIEW -->
+  <div class="day-view" id="dayView">
+    <div class="day-header" id="dayHeader"></div>
+    <div class="agenda" id="agenda"></div>
+  </div>
+
+  <!-- DESKTOP GRID VIEW -->
+  <div class="grid-view" id="gridView">
+    <div class="grid-scroll">
+      <table class="grid" id="gridTable"></table>
+    </div>
+  </div>
+
+  <div class="legend-wrap">
+    <div class="card">
+      <h3>Legend</h3>
+      <div class="legend-item"><span class="swatch sw-common"></span>Common lecture (same for both batches)</div>
+      <div class="legend-item"><span class="swatch sw-specific"></span>Batch-specific lecture (differs between B1 &amp; B2)</div>
+      <div class="legend-item"><span class="swatch sw-break"></span>Break</div>
+      <div class="legend-item"><span class="swatch sw-holiday"></span>Weekly Off</div>
+      <div class="legend-item"><span class="swatch sw-free"></span>Free / no lecture</div>
+      <div class="legend-item">Use the <strong>Batch B1 / Batch B2</strong> toggle above to switch schedules.</div>
+    </div>
+    <div class="card">
+      <h3>Subjects &amp; Faculty</h3>
+      <table class="faculty">
+        <thead><tr><th>Code</th><th>Subject</th><th>Faculty</th></tr></thead>
+        <tbody id="facultyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>Tap a day above on phone · scroll the grid sideways on wider screens</footer>
+</div>
+
+<script>
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const TIMES = ["8:00 - 9:00","9:00 - 10:00","10:00 - 11:00","11:00 - 12:00","12:00 - 1:00","1:00 - 2:00","2:00 - 3:00","3:00 - 4:00","4:00 - 5:00"];
+
+const FACULTY = [
+  ["MATH-III","Mathematics-III","Dr. Swapna Gabbur (SGA)"],
+  ["DS","Data Structures","Dr. Pallavi M (PMA)"],
+  ["DT","Digital Techniques","Prof. Praniti Patil (VPP)"],
+  ["ISL","Intro to Statistical Learning for Data Science","Prof. Rajas Divekar (VRD)"],
+  ["CSA","Computer System Architecture","Prof. Ninad Mehendale (VNM)"],
+  ["IOOP","Intro to Object Oriented Programming","Prof. Gunjan Agarwal (VGA)"],
+  ["BCHT","Basic Computer Hardware and Troubleshooting","Prof. Sana Ansari (SAN)"]
+];
+
+// raw cell -> {subj, room, type}
+// A cell value is either:
+//  - a plain "SUBJ\nROOM" string: identical for both batches (common lecture/break)
+//  - an object {B1:"SUBJ\nROOM"|null, B2:"SUBJ\nROOM"|null}: batch-specific, resolved per selected batch
+function parseCell(raw, batch){
+  if(raw === undefined || raw === null || raw === "—" || raw === "-") return {type:"none"};
+  if(raw==="HOLIDAY") return {type:"holiday", subj:"Weekly Off"};
+  if(raw==="BREAK") return {type:"break", subj:"Break"};
+  if(typeof raw === "object"){
+    const val = raw[batch];
+    if(!val) return {type:"none"};
+    return {type:"lecture", ...parseSingle(val)};
+  }
+  return {type:"lecture", ...parseSingle(raw)};
+}
+
+function parseSingle(str){
+  const parts = str.split("\n");
+  const subj = parts[0];
+  const room = parts[1] || "";
+  return {subj, room};
+}
+
+// Day windows (as printed on the sheet)
+const WINDOWS = {
+  Monday:"08:00 AM – 02:00 PM", Tuesday:"08:00 AM – 02:00 PM", Wednesday:"08:00 AM – 02:00 PM",
+  Thursday:"08:00 AM – 02:00 PM", Friday:"WEEKLY OFF", Saturday:"08:00 AM – 05:00 PM"
+};
+
+// Data transcribed cell-by-cell from the timetable image (rows = TIMES index 0..8)
+// Merged cells (spanning multiple time rows) are represented by repeating the identical
+// value/object across each covered row — mergeBlocks() collapses these back into spans.
+const DATA = {
+  Monday: [
+    "ISL (VRD)\nCR505", "ISL (VRD)\nCR505",
+    "BREAK",
+    "MATH-III (SGA)\nCR-403", "MATH-III (SGA)\nCR-403",
+    "DS (PMA)\nCR-509",
+    null, null, null
+  ],
+  Tuesday: [
+    {B1:"DT (VPP)\nCL-701", B2:"ISL (VRD)\nCL-603"},
+    {B1:"DT (VPP)\nCL-701", B2:"ISL (VRD)\nCL-603"},
+    "BREAK",
+    "MATH-III (SGA)\nCR-403",
+    "DS (PMA)\nCR-403",
+    {B1:null, B2:"MATH-III (SGA)\nCR-608"},
+    null, null, null
+  ],
+  Wednesday: [
+    {B1:"BCHT (SAN)\nCL-703", B2:"DS (PMA)\nCL-702"},
+    {B1:"BCHT (SAN)\nCL-703", B2:"DS (PMA)\nCL-702"},
+    "BREAK",
+    "DT\nCR-403", "DT\nCR-403",
+    {B1:"MATH-III (SGA)\nCR-509", B2:null},
+    null, null, null
+  ],
+  Thursday: [
+    {B1:"ISL (VRD)\nCL-703", B2:"DT (VPP)\nCL-603"},
+    {B1:"ISL (VRD)\nCL-703", B2:"DT (VPP)\nCL-603"},
+    "DT\nCR-801",
+    "BREAK",
+    {B1:"DS (PMA)\nCL-702", B2:"BCHT (SAN)\nCL-703"},
+    {B1:"DS (PMA)\nCL-702", B2:"BCHT (SAN)\nCL-703"},
+    null, null, null
+  ],
+  Friday: ["HOLIDAY", null, null, null, null, null, null, null, null],
+  Saturday: [
+    {B1:null, B2:"IOOP (VGA)\nCL-706"},
+    {B1:null, B2:"IOOP (VGA)\nCL-706"},
+    "CSA (VNM)\nCR-403", "CSA (VNM)\nCR-403",
+    "BREAK",
+    "IOOP (VGA)\nCR-403", "IOOP (VGA)\nCR-403",
+    {B1:"IOOP (VGA)\nCL-706", B2:null}, {B1:"IOOP (VGA)\nCL-706", B2:null}
+  ]
+};
+
+let currentBatch = "B1";
+let currentView = "day";
+let currentDayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay()-1; // Mon=0..Sun=6
+if(currentDayIdx > 5) currentDayIdx = 5; // clamp Sunday to Saturday tab (no Sunday column)
+
+function buildDayNav(){
+  const nav = document.getElementById("dayNav");
+  nav.innerHTML = "";
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay()-1;
+  DAYS.forEach((d,i)=>{
+    const btn = document.createElement("button");
+    btn.textContent = d.slice(0,3).toUpperCase();
+    if(i===currentDayIdx) btn.classList.add("active");
+    btn.onclick = ()=>{ currentDayIdx = i; render(); };
+    nav.appendChild(btn);
+  });
+}
+
+function slotType(parsed, raw){
+  if(parsed.type==="none") return "type-free";
+  if(parsed.type==="holiday") return "type-holiday";
+  if(parsed.type==="break") return "type-break";
+  // batch-specific: raw was a {B1, B2} object where the two batches differ
+  // (either different subjects, or one batch has nothing while the other has a lecture)
+  if(raw && typeof raw === "object" && raw.B1 !== raw.B2) return "type-specific";
+  return "type-common";
+}
+
+// raw values are equal (for the current batch) if their resolved lecture strings match.
+// Two batch-specific cells merge only when both batches see the identical thing.
+function rawEqual(a, b, batch){
+  const resolve = (v)=> typeof v === "object" && v !== null ? v[batch] : v;
+  return resolve(a) === resolve(b);
+}
+
+// Collapse consecutive raw values that resolve identically for this batch into blocks
+function mergeBlocks(arr, batch){
+  const blocks = [];
+  let i = 0;
+  while(i < arr.length){
+    const raw = arr[i];
+    let j = i;
+    while(j+1 < arr.length && rawEqual(arr[j+1], raw, batch)) j++;
+    blocks.push({raw, start:i, end:j});
+    i = j+1;
+  }
+  return blocks;
+}
+
+// Build the inner HTML for a parsed cell (used by both agenda and grid views)
+function cellInnerHTML(parsed, subjClass, metaClass){
+  if(parsed.type==="holiday") return `<div class="${subjClass}">Weekly Off</div>`;
+  if(parsed.type==="break") return `<div class="${subjClass}">Break</div>`;
+  if(parsed.type==="none") return "";
+  return `<div class="${subjClass}">${parsed.subj}</div><div class="${metaClass}">${parsed.room}</div>`;
+}
+
+function timeRangeParts(startIdx, endIdx){
+  const startLabel = TIMES[startIdx].split(" - ")[0];
+  const endLabel = TIMES[endIdx].split(" - ")[1];
+  return {startLabel, endLabel};
+}
+
+function renderAgenda(){
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay()-1;
+  const day = DAYS[currentDayIdx];
+  const win = WINDOWS[day];
+  const header = document.getElementById("dayHeader");
+  header.innerHTML = day + (currentDayIdx===todayIdx ? '<span class="todaytag">TODAY</span>' : '')
+    + (win && win!=="WEEKLY OFF" ? `<span class="day-window">${win}</span>` : '');
+
+  const arr = DATA[day];
+  const agenda = document.getElementById("agenda");
+  agenda.innerHTML = "";
+
+  const blocks = mergeBlocks(arr, currentBatch);
+  let any = false;
+  blocks.forEach(({raw, start, end})=>{
+    const parsed = parseCell(raw, currentBatch);
+    if(parsed.type==="none") return;
+    any = true;
+    const div = document.createElement("div");
+    div.className = "slot " + slotType(parsed, raw);
+    const timeDiv = document.createElement("div");
+    timeDiv.className = "time";
+    const {startLabel, endLabel} = timeRangeParts(start, end);
+    timeDiv.innerHTML = `<span class="t-start">${startLabel}</span><span class="t-sep">to</span><span class="t-end">${endLabel}</span>`;
+    const content = document.createElement("div");
+    content.className = "content";
+    content.innerHTML = cellInnerHTML(parsed, "subj", "meta");
+    div.appendChild(timeDiv);
+    div.appendChild(content);
+    agenda.appendChild(div);
+  });
+
+  if(!any){
+    agenda.innerHTML = `<div class="empty-note">No lectures scheduled — enjoy the day off.</div>`;
+  }
+}
+
+function renderGrid(){
+  const table = document.getElementById("gridTable");
+  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay()-1;
+  let html = "<thead><tr><th class='timecol'>Time</th>";
+  DAYS.forEach((d,i)=>{
+    html += `<th${i===todayIdx ? " style='background:#3a6b5e'" : ""}>${d}</th>`;
+  });
+  html += "</tr></thead><tbody>";
+
+  // Precompute merge blocks per day column, resolved for the current batch
+  const dayBlocks = {};
+  DAYS.forEach(d=>{ dayBlocks[d] = mergeBlocks(DATA[d], currentBatch); });
+  // Map rowIdx -> block starting there, per day (skip rows that are mid-block continuation)
+  const startsAt = {};
+  DAYS.forEach(d=>{
+    startsAt[d] = {};
+    dayBlocks[d].forEach(b=>{ startsAt[d][b.start] = b; });
+  });
+  const coveredBy = {};
+  DAYS.forEach(d=>{
+    coveredBy[d] = new Array(TIMES.length).fill(false);
+    dayBlocks[d].forEach(b=>{
+      for(let r=b.start+1; r<=b.end; r++) coveredBy[d][r] = true;
+    });
+  });
+
+  TIMES.forEach((t,rowIdx)=>{
+    html += `<tr><td class="timecell">${t}</td>`;
+    DAYS.forEach((d,colIdx)=>{
+      if(coveredBy[d][rowIdx]) return; // part of a rowspan above, skip cell entirely
+      const block = startsAt[d][rowIdx];
+      const raw = block.raw;
+      const span = block.end - block.start + 1;
+      const parsed = parseCell(raw, currentBatch);
+      const cls = slotType(parsed, raw) + (colIdx===todayIdx ? " today-col" : "");
+      const inner = cellInnerHTML(parsed, "csubj", "cmeta");
+      const rowspanAttr = span > 1 ? ` rowspan="${span}"` : "";
+      html += `<td class="${cls}"${rowspanAttr}><div class="cell-inner">${inner}</div></td>`;
+    });
+    html += "</tr>";
+  });
+  html += "</tbody>";
+  table.innerHTML = html;
+}
+
+function buildFaculty(){
+  const body = document.getElementById("facultyBody");
+  body.innerHTML = FACULTY.map(([code,name,fac])=>
+    `<tr><td class="code">${code}</td><td>${name}</td><td>${fac}</td></tr>`
+  ).join("");
+}
+
+function applyViewMode(){
+  const dayView = document.getElementById("dayView");
+  const gridView = document.getElementById("gridView");
+  const dayNav = document.getElementById("dayNav");
+  if(currentView === "day"){
+    dayView.classList.add("shown"); dayView.classList.remove("hidden");
+    gridView.classList.remove("shown"); gridView.classList.add("hidden");
+    dayNav.style.display = "";
+  } else {
+    gridView.classList.add("shown"); gridView.classList.remove("hidden");
+    dayView.classList.remove("shown"); dayView.classList.add("hidden");
+    dayNav.style.display = "none";
+  }
+}
+
+function render(){
+  buildDayNav();
+  renderAgenda();
+  renderGrid();
+  applyViewMode();
+}
+
+document.getElementById("batchToggle").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  currentBatch = btn.dataset.batch;
+  document.querySelectorAll("#batchToggle button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  render();
+});
+
+document.getElementById("viewToggle").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  currentView = btn.dataset.view;
+  document.querySelectorAll("#viewToggle button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  render();
+});
+
+buildFaculty();
+render();
+</script>
+</body>
+</html>
