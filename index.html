@@ -482,6 +482,53 @@
     margin-bottom:14px;
     width:max-content;
   }
+
+  /* Notification permission banner */
+  #notifyBanner{
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background: linear-gradient(135deg, var(--accent), #2c5349);
+    color:var(--white);
+    border-radius:var(--radius);
+    padding:12px 14px;
+    margin-bottom:16px;
+    font-size:13px;
+  }
+  #notifyBanner .notify-text{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  #notifyBanner .notify-title{
+    font-weight:800;
+    font-size:14px;
+  }
+  #notifyBanner .notify-sub{
+    font-family:'Courier New',monospace;
+    font-size:11.5px;
+    opacity:.85;
+  }
+  #notifyBanner button{
+    font-family:inherit;
+    font-weight:700;
+    font-size:12.5px;
+    background:white;
+    color:var(--accent);
+    border:none;
+    border-radius:7px;
+    padding:8px 14px;
+    cursor:pointer;
+    white-space:nowrap;
+    flex:0 0 auto;
+  }
+  #notifyBanner .dismiss{
+    background:transparent;
+    color:var(--white);
+    opacity:.7;
+    padding:8px 8px;
+  }
 </style>
 </head>
 <body>
@@ -499,6 +546,18 @@
     </span>
   </div>
   <div id="offlineTag">⏻ Offline — showing saved data</div>
+
+  <div id="notifyBanner">
+    <div class="notify-text">
+      <span class="notify-title">Get class alerts on this device</span>
+      <span class="notify-sub" id="notifySub">5 min before &amp; when class starts</span>
+    </div>
+    <span style="display:flex;gap:6px;">
+      <button id="notifyBtn">Enable</button>
+      <button class="dismiss" id="notifyDismiss">✕</button>
+    </span>
+  </div>
+
   <div class="toggle-row">
     <div class="toggle" id="batchToggle">
       <button data-batch="B1" class="active">Batch B1</button>
@@ -989,6 +1048,194 @@ function updateOnlineStatus(){
 window.addEventListener("online", updateOnlineStatus);
 window.addEventListener("offline", updateOnlineStatus);
 updateOnlineStatus();
+
+/* ===================== LOCAL CLASS NOTIFICATIONS =====================
+   Best-effort only: fires while the app/tab is open (foreground or briefly
+   backgrounded). On Android/Chrome this can also fire via the service worker
+   for a while after backgrounding; on iOS Safari there is no reliable
+   "wake up at a scheduled time while fully closed" API, so this only works
+   when the person actually has the app open around class time. There is no
+   backend/push server here, so nothing can ping the device while the app
+   has been closed for a long stretch — that would require a server-side
+   push service (e.g. Web Push + a backend), which is out of scope for a
+   static GitHub Pages PWA.
+   Notifications fire twice per class: 5 minutes before start, and exactly
+   at start. Each (day+batch+block+trigger) fires at most once, tracked
+   in a Set that resets automatically at midnight (new Date().toDateString()
+   changing) so the same class tomorrow notifies again.
+*/
+
+const notifyBanner = document.getElementById("notifyBanner");
+const notifyBtn = document.getElementById("notifyBtn");
+const notifyDismiss = document.getElementById("notifyDismiss");
+const NOTIFY_STORAGE_KEY = "classNotifyDismissed";
+const NOTIFY_FIRED_KEY = "classNotifyFiredLog"; // {dateStr, keys:[...]}
+
+function notificationsSupported(){
+  return "Notification" in window;
+}
+
+function getFiredLog(){
+  try{
+    const raw = sessionStorage.getItem(NOTIFY_FIRED_KEY);
+    if(!raw) return {dateStr:"", keys:[]};
+    const parsed = JSON.parse(raw);
+    const today = new Date().toDateString();
+    if(parsed.dateStr !== today) return {dateStr:today, keys:[]}; // reset for new day
+    return parsed;
+  } catch(e){
+    return {dateStr:new Date().toDateString(), keys:[]};
+  }
+}
+
+function markFired(key){
+  const log = getFiredLog();
+  log.dateStr = new Date().toDateString();
+  if(!log.keys.includes(key)) log.keys.push(key);
+  try{ sessionStorage.setItem(NOTIFY_FIRED_KEY, JSON.stringify(log)); } catch(e){}
+}
+
+function alreadyFired(key){
+  const log = getFiredLog();
+  return log.keys.includes(key);
+}
+
+function showClassNotification(title, body, tag){
+  if(!notificationsSupported() || Notification.permission !== "granted") return;
+  const opts = {
+    body,
+    tag,               // same tag replaces any still-visible prior notification
+    renotify:false,
+    icon:"icon-192.png",
+    badge:"icon-192.png",
+    silent:false
+  };
+  // Prefer firing through the service worker registration (works better
+  // when the tab is backgrounded on Android); fall back to a plain
+  // Notification if no SW registration is available yet.
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.getRegistration().then(reg=>{
+      if(reg && reg.showNotification){
+        reg.showNotification(title, opts);
+      } else {
+        new Notification(title, opts);
+      }
+    }).catch(()=>{ new Notification(title, opts); });
+  } else {
+    new Notification(title, opts);
+  }
+}
+
+// Runs on the same 30s cadence as the live-highlight refresh. Checks the
+// CURRENTLY SELECTED batch's TODAY schedule for any block whose start
+// time is exactly 5 minutes away, or exactly now, and fires a one-time
+// notification per block per trigger per day.
+function checkClassNotifications(){
+  if(!notificationsSupported() || Notification.permission !== "granted") return;
+
+  const now = new Date();
+  const rawIdx = now.getDay() === 0 ? 6 : now.getDay()-1;
+  if(rawIdx > 5) return; // no Sunday column in this timetable
+  const todayIdx = rawIdx;
+  const day = DAYS[todayIdx];
+  if(!day || !DATA[day]) return;
+
+  const win = WINDOWS[day];
+  if(win === "WEEKLY OFF") return;
+
+  const arr = DATA[day];
+  const blocks = mergeBlocks(arr, currentBatch);
+  const nowMinutes = now.getHours()*60 + now.getMinutes();
+
+  blocks.forEach(({raw, start, end})=>{
+    const parsed = parseCell(raw, currentBatch);
+    if(parsed.type !== "lecture") return; // only notify for actual classes, not breaks/off days/free
+    const [startH] = TIME_RANGES[start];
+    const blockStartMin = startH*60;
+
+    const fiveBeforeKey = `${day}-${currentBatch}-${start}-pre5`;
+    const startKey = `${day}-${currentBatch}-${start}-start`;
+
+    // 5-minutes-before window (fires once, checked on a <=30s poll so it
+    // reliably lands within the 5:00-4:30-before window)
+    if(nowMinutes === blockStartMin - 5 && !alreadyFired(fiveBeforeKey)){
+      showClassNotification(
+        `Starting soon: ${parsed.subj}`,
+        `${parsed.room ? parsed.room + " · " : ""}${fmt12(startH,0)} · Batch ${currentBatch}`,
+        fiveBeforeKey
+      );
+      markFired(fiveBeforeKey);
+    }
+
+    // exact start
+    if(nowMinutes === blockStartMin && !alreadyFired(startKey)){
+      showClassNotification(
+        `Now: ${parsed.subj}`,
+        `${parsed.room ? parsed.room + " · " : ""}Started ${fmt12(startH,0)} · Batch ${currentBatch}`,
+        startKey
+      );
+      markFired(startKey);
+    }
+  });
+}
+
+function updateNotifyBannerVisibility(){
+  if(!notificationsSupported()){
+    notifyBanner.style.display = "none";
+    return;
+  }
+  if(Notification.permission === "granted"){
+    notifyBanner.style.display = "none";
+    return;
+  }
+  if(Notification.permission === "denied"){
+    notifyBanner.style.display = "none"; // user said no at OS/browser level, don't nag
+    return;
+  }
+  if(sessionStorage.getItem(NOTIFY_STORAGE_KEY)){
+    notifyBanner.style.display = "none";
+    return;
+  }
+  notifyBanner.style.display = "flex";
+}
+
+if(notifyBtn){
+  notifyBtn.addEventListener("click", async ()=>{
+    if(!notificationsSupported()){
+      notifyBanner.style.display = "none";
+      return;
+    }
+    try{
+      const perm = await Notification.requestPermission();
+      updateNotifyBannerVisibility();
+      if(perm === "granted"){
+        showClassNotification(
+          "Notifications enabled",
+          "You'll get an alert 5 min before each class and when it starts.",
+          "notify-confirm"
+        );
+      }
+    } catch(e){
+      // requestPermission can reject/throw on some older browsers
+      notifyBanner.style.display = "none";
+    }
+  });
+}
+
+if(notifyDismiss){
+  notifyDismiss.addEventListener("click", ()=>{
+    notifyBanner.style.display = "none";
+    sessionStorage.setItem(NOTIFY_STORAGE_KEY, "1");
+  });
+}
+
+updateNotifyBannerVisibility();
+
+// Check for due notifications on the same cadence as the live-highlight refresh
+setInterval(checkClassNotifications, 30000);
+// Also check once shortly after load, in case the tab was opened right at
+// a trigger minute
+setTimeout(checkClassNotifications, 2000);
 </script>
 </body>
 </html>
