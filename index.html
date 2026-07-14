@@ -4,24 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Timetable</title>
-
 <!-- PWA: manifest -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1c2321">
-
 <!-- Icons: favicons -->
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
-
 <!-- iOS home screen support -->
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Timetable">
-
 <!-- Android/Chrome -->
 <meta name="mobile-web-app-capable" content="yes">
-
 <style>
   :root{
     --ink:#1c2321;
@@ -48,7 +43,6 @@
     min-height:100vh;
   }
   .wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px;}
-
   header.top{
     display:flex;flex-direction:column;gap:4px;
     padding-bottom:16px;margin-bottom:18px;
@@ -69,7 +63,6 @@
     font-family:'Courier New',monospace;
     font-size:12.5px;color:#555; margin-top:4px;
   }
-
   /* Section toggle */
   .toggle{
     display:flex;gap:0;
@@ -95,7 +88,6 @@
     background:var(--ink);
     color:var(--paper);
   }
-
   /* Day pills for mobile nav */
   .daynav{
     display:flex;
@@ -128,7 +120,6 @@
   .daynav button[disabled]{
     opacity:.4;
   }
-
   /* Today badge */
   .todaytag{
     display:inline-block;
@@ -142,7 +133,6 @@
     vertical-align:middle;
     letter-spacing:.05em;
   }
-
   /* ===== Mobile: agenda/day view ===== */
   .day-view{display:block;}
   .day-header{
@@ -156,34 +146,127 @@
     display:flex;flex-direction:column;gap:10px;
   }
   .slot{
+    position:relative;
     display:flex;
     border:1px solid var(--line);
     border-radius:var(--radius);
     background:var(--white);
     overflow:hidden;
     box-shadow:var(--shadow);
+    transition:background .3s ease, border-color .3s ease, box-shadow .3s ease;
   }
+
+  /* ===== Live "now" states applied directly to the matching day-view slot ===== */
+  .slot.is-now{
+    border:2px solid transparent;
+    color:var(--white);
+  }
+  .slot.is-now .time{
+    border-right:1px solid rgba(255,255,255,0.25);
+    background:rgba(0,0,0,0.12);
+    color:var(--white);
+  }
+  .slot.is-now .time .t-sep{color:rgba(255,255,255,0.65);}
+  .slot.is-now .meta{color:rgba(255,255,255,0.92);}
+  .slot.is-now .room{color:var(--white);}
+
+  .slot.is-now.now-live{
+    background: linear-gradient(135deg, var(--accent), #2c5349);
+    box-shadow:0 4px 14px rgba(58,107,94,0.35);
+  }
+  .slot.is-now.now-break{
+    background: linear-gradient(135deg, #8f8674, var(--break));
+    box-shadow:0 4px 14px rgba(184,176,160,0.35);
+  }
+  .slot.is-now.now-upcoming{
+    background: linear-gradient(135deg, #4a4038, #6b5d4f);
+    box-shadow:0 4px 14px rgba(74,64,56,0.3);
+  }
+
+  .now-flag{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:'Courier New',monospace;
+    font-size:10px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    font-weight:700;
+    margin-bottom:4px;
+    opacity:.9;
+  }
+  .now-flag .pulse-dot{
+    width:7px;height:7px;border-radius:50%;
+    background:#7ee0a8;
+    box-shadow:0 0 0 0 rgba(126,224,168,.6);
+    animation:pulse 1.8s infinite;
+    flex:0 0 auto;
+  }
+  @keyframes pulse{
+    0%{ box-shadow:0 0 0 0 rgba(126,224,168,.55); }
+    70%{ box-shadow:0 0 0 8px rgba(126,224,168,0); }
+    100%{ box-shadow:0 0 0 0 rgba(126,224,168,0); }
+  }
+  .now-progress-track{
+    margin-top:8px;
+    height:4px;
+    border-radius:3px;
+    background:rgba(255,255,255,0.25);
+    overflow:hidden;
+  }
+  .now-progress-fill{
+    height:100%;
+    background:#fff;
+    border-radius:3px;
+    width:0%;
+    transition:width .5s linear;
+  }
+  .now-until{
+    font-family:'Courier New',monospace;
+    font-size:11.5px;
+    font-weight:700;
+    opacity:.85;
+    margin-top:6px;
+  }
+
   .slot .time{
-    flex:0 0 76px;
+    flex:0 0 80px;
     padding:10px 6px;
     font-family:'Courier New',monospace;
-    font-weight:700;
-    color:#333;
+    font-weight:800;
+    color:#222;
     border-right:1px solid var(--line);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     text-align:center;
     background:var(--paper2);
     line-height:1.3;
   }
-  .slot .time .t-start{font-size:14px;}
+  .slot .time .t-start{font-size:15px;font-weight:800;}
   .slot .time .t-sep{font-size:9px;color:#888;margin:1px 0;}
-  .slot .time .t-end{font-size:14px;}
+  .slot .time .t-end{font-size:15px;font-weight:800;}
   .slot .content{
     flex:1;
     padding:12px 14px;
+    min-width:0;
+  }
+  .slot .subj-row{
+    display:flex;
+    align-items:baseline;
+    flex-wrap:wrap;
+    gap:8px;
   }
   .slot .subj{
     font-weight:800;font-size:18px;
+  }
+  .slot .room{
+    font-family:'Courier New',monospace;
+    font-weight:800;
+    font-size:16px;
+    color:var(--ink);
+    background:rgba(0,0,0,0.06);
+    padding:2px 8px;
+    border-radius:6px;
+    letter-spacing:.02em;
   }
   .slot .meta{
     font-family:'Courier New',monospace;
@@ -199,12 +282,10 @@
   .slot.type-holiday{border-left:5px solid var(--holiday); background:#f4e9e7;}
   .slot.type-free .subj{color:#999;font-weight:400;font-style:italic;}
   .slot.type-extra{border-left:5px solid var(--accent3);}
-
   .empty-note{
     font-family:'Courier New',monospace;
     font-size:13px;color:#888;text-align:center;padding:30px 0;
   }
-
   /* ===== Desktop grid ===== */
   .grid-view{display:none;}
   .grid-scroll{overflow-x:auto;border:1px solid var(--line); border-radius:var(--radius); background:var(--white);}
@@ -246,9 +327,9 @@
   }
   table.grid td.timecell{
     font-family:'Courier New',monospace;
-    font-size:12.5px;
-    font-weight:700;
-    color:#333;
+    font-size:13px;
+    font-weight:800;
+    color:#222;
     text-align:center;
     padding:8px 4px;
     background:var(--paper2);
@@ -262,10 +343,20 @@
     min-height:64px;
     padding:8px 9px;
     font-size:12.5px;
-    display:flex;flex-direction:column;justify-content:center;gap:3px;
+    display:flex;flex-direction:column;justify-content:center;gap:4px;
     box-sizing:border-box;
   }
+  .cell-inner .csubj-row{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;}
   .cell-inner .csubj{font-weight:800;font-size:14px;}
+  .cell-inner .croom{
+    font-family:'Courier New',monospace;
+    font-weight:800;
+    font-size:12.5px;
+    color:var(--ink);
+    background:rgba(0,0,0,0.06);
+    padding:1px 6px;
+    border-radius:5px;
+  }
   .cell-inner .cmeta{font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:#3a3a3a;}
   td.type-common{border-left:4px solid var(--accent);}
   td.type-specific{border-left:4px solid var(--accent2);}
@@ -275,20 +366,24 @@
   td.type-free .cell-inner .csubj{color:#bbb;}
   td.type-extra{border-left:4px solid var(--accent3);}
   td.today-col{background:#fbf6ea;}
-
+  td.is-now{
+    outline:2px solid var(--accent);
+    outline-offset:-2px;
+  }
+  td.is-now.now-live{background: linear-gradient(135deg, rgba(58,107,94,0.16), rgba(44,83,73,0.22));}
+  td.is-now.now-break{background: linear-gradient(135deg, rgba(143,134,116,0.18), rgba(184,176,160,0.22));}
+  td.is-now.now-upcoming{background: linear-gradient(135deg, rgba(74,64,56,0.14), rgba(107,93,79,0.18));}
   @media (min-width: 860px){
     .daynav{display:none;}
   }
   .day-view.hidden, .grid-view.hidden{display:none !important;}
   .day-view.shown{display:block;}
   .grid-view.shown{display:block;}
-
   .toggle-row{
     display:flex;flex-wrap:wrap;gap:10px;
     margin:16px 0 20px;
   }
   .toggle-row .toggle{margin:0;}
-
   /* Legend + faculty */
   .legend-wrap{
     margin-top:28px;
@@ -324,7 +419,6 @@
   .sw-extra{background:var(--accent3);}
   .sw-holiday{background:var(--holiday);}
   .sw-free{background:#ccc;}
-
   table.faculty{width:100%;border-collapse:collapse;font-size:12.5px;}
   table.faculty th{
     text-align:left;font-family:'Courier New',monospace;font-size:10.5px;
@@ -332,12 +426,10 @@
   }
   table.faculty td{padding:6px 6px;border-bottom:1px solid #eee;}
   table.faculty td.code{font-weight:700;color:var(--accent);}
-
   footer{
     text-align:center;font-family:'Courier New',monospace;
     font-size:11px;color:#999;margin-top:34px;
   }
-
   /* Install / offline banner */
   #installBanner{
     display:none;
@@ -383,13 +475,11 @@
 </head>
 <body>
 <div class="wrap">
-
   <header class="top">
     <div class="eyebrow">Diploma in Computer Science &amp; Engineering — Sem III · Mumbai Campus</div>
     <h1>Weekly Timetable</h1>
     <div class="sub">w.e.f. 13 July 2026 · Rev 0</div>
   </header>
-
   <div id="installBanner">
     <span id="installBannerText">Add this to your home screen for quick access.</span>
     <span style="display:flex;gap:6px;">
@@ -398,7 +488,6 @@
     </span>
   </div>
   <div id="offlineTag">⏻ Offline — showing saved data</div>
-
   <div class="toggle-row">
     <div class="toggle" id="batchToggle">
       <button data-batch="B1" class="active">Batch B1</button>
@@ -409,22 +498,18 @@
       <button data-view="week">Week view</button>
     </div>
   </div>
-
   <div class="daynav" id="dayNav"></div>
-
   <!-- MOBILE AGENDA VIEW -->
   <div class="day-view" id="dayView">
     <div class="day-header" id="dayHeader"></div>
     <div class="agenda" id="agenda"></div>
   </div>
-
   <!-- DESKTOP GRID VIEW -->
   <div class="grid-view" id="gridView">
     <div class="grid-scroll">
       <table class="grid" id="gridTable"></table>
     </div>
   </div>
-
   <div class="legend-wrap">
     <div class="card">
       <h3>Legend</h3>
@@ -443,14 +528,15 @@
       </table>
     </div>
   </div>
-
   <footer>Tap a day above on phone · scroll the grid sideways on wider screens</footer>
 </div>
-
 <script>
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TIMES = ["8:00 - 9:00","9:00 - 10:00","10:00 - 11:00","11:00 - 12:00","12:00 - 1:00","1:00 - 2:00","2:00 - 3:00","3:00 - 4:00","4:00 - 5:00"];
-
+// Parallel array of [startHour24, endHour24] for each TIMES slot, used for live "now" detection.
+const TIME_RANGES = [
+  [8,9],[9,10],[10,11],[11,12],[12,13],[13,14],[14,15],[15,16],[16,17]
+];
 const FACULTY = [
   ["MATH-III","Mathematics-III","Dr. Swapna Gabbur (SGA)"],
   ["DS","Data Structures","Dr. Pallavi M (PMA)"],
@@ -460,7 +546,6 @@ const FACULTY = [
   ["IOOP","Intro to Object Oriented Programming","Prof. Gunjan Agarwal (VGA)"],
   ["BCHT","Basic Computer Hardware and Troubleshooting","Prof. Sana Ansari (SAN)"]
 ];
-
 // raw cell -> {subj, room, type}
 // A cell value is either:
 //  - a plain "SUBJ\nROOM" string: identical for both batches (common lecture/break)
@@ -476,20 +561,17 @@ function parseCell(raw, batch){
   }
   return {type:"lecture", ...parseSingle(raw)};
 }
-
 function parseSingle(str){
   const parts = str.split("\n");
   const subj = parts[0];
   const room = parts[1] || "";
   return {subj, room};
 }
-
 // Day windows (as printed on the sheet)
 const WINDOWS = {
   Monday:"08:00 AM – 02:00 PM", Tuesday:"08:00 AM – 02:00 PM", Wednesday:"08:00 AM – 02:00 PM",
   Thursday:"08:00 AM – 02:00 PM", Friday:"WEEKLY OFF", Saturday:"08:00 AM – 05:00 PM"
 };
-
 // Data transcribed cell-by-cell from the timetable image (rows = TIMES index 0..8)
 // Merged cells (spanning multiple time rows) are represented by repeating the identical
 // value/object across each covered row — mergeBlocks() collapses these back into spans.
@@ -537,12 +619,10 @@ const DATA = {
     {B1:"IOOP (VGA)\nCL-706", B2:null}, {B1:"IOOP (VGA)\nCL-706", B2:null}
   ]
 };
-
 let currentBatch = "B1";
 let currentView = "day";
 let currentDayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay()-1; // Mon=0..Sun=6
 if(currentDayIdx > 5) currentDayIdx = 5; // clamp Sunday to Saturday tab (no Sunday column)
-
 function buildDayNav(){
   const nav = document.getElementById("dayNav");
   nav.innerHTML = "";
@@ -555,7 +635,6 @@ function buildDayNav(){
     nav.appendChild(btn);
   });
 }
-
 function slotType(parsed, raw){
   if(parsed.type==="none") return "type-free";
   if(parsed.type==="holiday") return "type-holiday";
@@ -565,14 +644,12 @@ function slotType(parsed, raw){
   if(raw && typeof raw === "object" && raw.B1 !== raw.B2) return "type-specific";
   return "type-common";
 }
-
 // raw values are equal (for the current batch) if their resolved lecture strings match.
 // Two batch-specific cells merge only when both batches see the identical thing.
 function rawEqual(a, b, batch){
   const resolve = (v)=> typeof v === "object" && v !== null ? v[batch] : v;
   return resolve(a) === resolve(b);
 }
-
 // Collapse consecutive raw values that resolve identically for this batch into blocks
 function mergeBlocks(arr, batch){
   const blocks = [];
@@ -586,21 +663,16 @@ function mergeBlocks(arr, batch){
   }
   return blocks;
 }
-
-// Build the inner HTML for a parsed cell (used by both agenda and grid views)
-function cellInnerHTML(parsed, subjClass, metaClass){
-  if(parsed.type==="holiday") return `<div class="${subjClass}">Weekly Off</div>`;
-  if(parsed.type==="break") return `<div class="${subjClass}">Break</div>`;
-  if(parsed.type==="none") return "";
-  return `<div class="${subjClass}">${parsed.subj}</div><div class="${metaClass}">${parsed.room}</div>`;
+function fmt12(h, m){
+  const period = h >= 12 ? "PM" : "AM";
+  let h12 = h % 12; if(h12 === 0) h12 = 12;
+  return `${h12}:${String(m||0).padStart(2,"0")} ${period}`;
 }
-
 function timeRangeParts(startIdx, endIdx){
   const startLabel = TIMES[startIdx].split(" - ")[0];
   const endLabel = TIMES[endIdx].split(" - ")[1];
   return {startLabel, endLabel};
 }
-
 function renderAgenda(){
   const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay()-1;
   const day = DAYS[currentDayIdx];
@@ -608,10 +680,12 @@ function renderAgenda(){
   const header = document.getElementById("dayHeader");
   header.innerHTML = day + (currentDayIdx===todayIdx ? '<span class="todaytag">TODAY</span>' : '')
     + (win && win!=="WEEKLY OFF" ? `<span class="day-window">${win}</span>` : '');
-
   const arr = DATA[day];
   const agenda = document.getElementById("agenda");
   agenda.innerHTML = "";
+
+  const live = getLiveContext();
+  const isViewingLiveDayAndBatch = (currentBatch === live.batch && currentDayIdx === todayIdx);
 
   const blocks = mergeBlocks(arr, currentBatch);
   let any = false;
@@ -620,33 +694,69 @@ function renderAgenda(){
     if(parsed.type==="none") return;
     any = true;
     const div = document.createElement("div");
-    div.className = "slot " + slotType(parsed, raw);
+    let cls = "slot " + slotType(parsed, raw);
+
+    let nowState = null;
+    if(isViewingLiveDayAndBatch){
+      if(live.status === "live" && live.activeBlockStart === start){
+        nowState = "now-live";
+      } else if(live.status === "break" && live.activeBlockStart === start){
+        nowState = "now-break";
+      } else if(live.status === "upcoming" && live.activeBlockStart === start){
+        nowState = "now-upcoming";
+      }
+    }
+    if(nowState) cls += " is-now " + nowState;
+    div.className = cls;
+
     const timeDiv = document.createElement("div");
     timeDiv.className = "time";
     const {startLabel, endLabel} = timeRangeParts(start, end);
     timeDiv.innerHTML = `<span class="t-start">${startLabel}</span><span class="t-sep">to</span><span class="t-end">${endLabel}</span>`;
+
     const content = document.createElement("div");
     content.className = "content";
-    content.innerHTML = cellInnerHTML(parsed, "subj", "meta");
+
+    let flagHtml = "";
+    let progressHtml = "";
+    let untilHtml = "";
+    if(nowState === "now-live"){
+      flagHtml = `<div class="now-flag"><span class="pulse-dot"></span>Happening now</div>`;
+      progressHtml = `<div class="now-progress-track"><div class="now-progress-fill" style="width:${live.pct}%;"></div></div>`;
+      untilHtml = `<div class="now-until">Until ${fmt12(live.endH,0)}</div>`;
+    } else if(nowState === "now-break"){
+      flagHtml = `<div class="now-flag"><span class="pulse-dot"></span>On break</div>`;
+      untilHtml = `<div class="now-until">Until ${fmt12(live.endH,0)}</div>`;
+    } else if(nowState === "now-upcoming"){
+      flagHtml = `<div class="now-flag">Up next</div>`;
+      untilHtml = `<div class="now-until">Starts ${fmt12(live.startH,0)}</div>`;
+    }
+
+    if(parsed.type==="holiday"){
+      content.innerHTML = `${flagHtml}<div class="subj-row"><span class="subj">Weekly Off</span></div>`;
+    } else if(parsed.type==="break"){
+      content.innerHTML = `${flagHtml}<div class="subj-row"><span class="subj">Break</span></div>${untilHtml}`;
+    } else {
+      content.innerHTML = `${flagHtml}<div class="subj-row"><span class="subj">${parsed.subj}</span>${parsed.room ? `<span class="room">${parsed.room}</span>` : ""}</div>${progressHtml}${untilHtml}`;
+    }
+
     div.appendChild(timeDiv);
     div.appendChild(content);
     agenda.appendChild(div);
   });
-
   if(!any){
     agenda.innerHTML = `<div class="empty-note">No lectures scheduled — enjoy the day off.</div>`;
   }
 }
-
 function renderGrid(){
   const table = document.getElementById("gridTable");
   const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay()-1;
+  const live = getLiveContext();
   let html = "<thead><tr><th class='timecol'>Time</th>";
   DAYS.forEach((d,i)=>{
     html += `<th${i===todayIdx ? " style='background:#3a6b5e'" : ""}>${d}</th>`;
   });
   html += "</tr></thead><tbody>";
-
   // Precompute merge blocks per day column, resolved for the current batch
   const dayBlocks = {};
   DAYS.forEach(d=>{ dayBlocks[d] = mergeBlocks(DATA[d], currentBatch); });
@@ -663,7 +773,6 @@ function renderGrid(){
       for(let r=b.start+1; r<=b.end; r++) coveredBy[d][r] = true;
     });
   });
-
   TIMES.forEach((t,rowIdx)=>{
     html += `<tr><td class="timecell">${t}</td>`;
     DAYS.forEach((d,colIdx)=>{
@@ -672,8 +781,26 @@ function renderGrid(){
       const raw = block.raw;
       const span = block.end - block.start + 1;
       const parsed = parseCell(raw, currentBatch);
-      const cls = slotType(parsed, raw) + (colIdx===todayIdx ? " today-col" : "");
-      const inner = cellInnerHTML(parsed, "csubj", "cmeta");
+      let cls = slotType(parsed, raw) + (colIdx===todayIdx ? " today-col" : "");
+
+      let nowState = null;
+      if(live.batch === currentBatch && colIdx === todayIdx && d === DAYS[todayIdx]){
+        if(live.status === "live" && live.activeBlockStart === rowIdx) nowState = "now-live";
+        else if(live.status === "break" && live.activeBlockStart === rowIdx) nowState = "now-break";
+        else if(live.status === "upcoming" && live.activeBlockStart === rowIdx) nowState = "now-upcoming";
+      }
+      if(nowState) cls += " is-now " + nowState;
+
+      let inner = "";
+      if(parsed.type==="holiday"){
+        inner = `<div class="csubj-row"><span class="csubj">Weekly Off</span></div>`;
+      } else if(parsed.type==="break"){
+        inner = `<div class="csubj-row"><span class="csubj">Break</span></div>`;
+      } else if(parsed.type==="none"){
+        inner = "";
+      } else {
+        inner = `<div class="csubj-row"><span class="csubj">${parsed.subj}</span>${parsed.room ? `<span class="croom">${parsed.room}</span>` : ""}</div>`;
+      }
       const rowspanAttr = span > 1 ? ` rowspan="${span}"` : "";
       html += `<td class="${cls}"${rowspanAttr}><div class="cell-inner">${inner}</div></td>`;
     });
@@ -682,14 +809,12 @@ function renderGrid(){
   html += "</tbody>";
   table.innerHTML = html;
 }
-
 function buildFaculty(){
   const body = document.getElementById("facultyBody");
   body.innerHTML = FACULTY.map(([code,name,fac])=>
     `<tr><td class="code">${code}</td><td>${name}</td><td>${fac}</td></tr>`
   ).join("");
 }
-
 function applyViewMode(){
   const dayView = document.getElementById("dayView");
   const gridView = document.getElementById("gridView");
@@ -704,14 +829,12 @@ function applyViewMode(){
     dayNav.style.display = "none";
   }
 }
-
 function render(){
   buildDayNav();
   renderAgenda();
   renderGrid();
   applyViewMode();
 }
-
 document.getElementById("batchToggle").addEventListener("click", (e)=>{
   const btn = e.target.closest("button");
   if(!btn) return;
@@ -720,7 +843,6 @@ document.getElementById("batchToggle").addEventListener("click", (e)=>{
   btn.classList.add("active");
   render();
 });
-
 document.getElementById("viewToggle").addEventListener("click", (e)=>{
   const btn = e.target.closest("button");
   if(!btn) return;
@@ -729,12 +851,77 @@ document.getElementById("viewToggle").addEventListener("click", (e)=>{
   btn.classList.add("active");
   render();
 });
-
 buildFaculty();
 render();
 
-/* ===================== PWA: install + offline support ===================== */
+/* ===================== LIVE "NOW" DETECTION ===================== */
 
+// Figures out, for the CURRENTLY SELECTED BATCH and TODAY, what's happening right now
+// (independent of which day/view the user is currently browsing) so the day-view/grid
+// highlighting always reflects real device time. Returns null-safe object.
+function getLiveContext(){
+  const now = new Date();
+  const rawIdx = now.getDay() === 0 ? 6 : now.getDay()-1; // 0=Mon..6=Sun
+  const batch = currentBatch;
+
+  // No Sunday column in this timetable (Sun index 6 doesn't exist in DAYS)
+  if(rawIdx > 5){
+    return { batch, todayIdx: -1, status:"holiday" };
+  }
+  const todayIdx = rawIdx;
+  const day = DAYS[todayIdx];
+
+  const win = WINDOWS[day];
+  if(win === "WEEKLY OFF"){
+    return { batch, day, todayIdx, status:"holiday" };
+  }
+
+  const arr = DATA[day];
+  const blocks = mergeBlocks(arr, batch);
+  const nowMinutes = now.getHours()*60 + now.getMinutes();
+
+  // find block whose time range contains "now"
+  for(const {raw, start, end} of blocks){
+    const parsed = parseCell(raw, batch);
+    if(parsed.type === "none") continue;
+    const [startH] = TIME_RANGES[start];
+    const [, endH] = TIME_RANGES[end];
+    const blockStartMin = startH*60;
+    const blockEndMin = endH*60;
+    if(nowMinutes >= blockStartMin && nowMinutes < blockEndMin){
+      const pct = Math.min(100, Math.max(0, ((nowMinutes - blockStartMin) / (blockEndMin - blockStartMin)) * 100));
+      return {
+        batch, day, todayIdx,
+        status: parsed.type === "break" ? "break" : "live",
+        parsed, activeBlockStart:start, activeBlockEnd:end,
+        startH, endH, pct
+      };
+    }
+  }
+
+  // no current block — find the NEXT upcoming block today
+  let next = null;
+  for(const {raw, start, end} of blocks){
+    const parsed = parseCell(raw, batch);
+    if(parsed.type === "none" || parsed.type === "break") continue;
+    const [startH] = TIME_RANGES[start];
+    const blockStartMin = startH*60;
+    if(blockStartMin > nowMinutes){ next = {raw, start, end, parsed, startH}; break; }
+  }
+  if(next){
+    return { batch, day, todayIdx, status:"upcoming", parsed:next.parsed, activeBlockStart:next.start, activeBlockEnd:next.end, startH:next.startH };
+  }
+
+  return { batch, day, todayIdx, status:"done" };
+}
+
+// Refresh the live highlight (day view + grid) every 30s so it tracks real time
+setInterval(()=>{
+  renderAgenda();
+  renderGrid();
+}, 30000);
+
+/* ===================== PWA: install + offline support ===================== */
 // Register service worker for offline caching
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
@@ -743,23 +930,19 @@ if("serviceWorker" in navigator){
     });
   });
 }
-
 // Android/Chrome: capture the native install prompt and show our own banner
 let deferredInstallPrompt = null;
 const installBanner = document.getElementById("installBanner");
 const installBtn = document.getElementById("installBtn");
 const installDismiss = document.getElementById("installDismiss");
 const installBannerText = document.getElementById("installBannerText");
-
 function isStandalone(){
   return window.matchMedia("(display-mode: standalone)").matches
     || window.navigator.standalone === true; // iOS Safari flag
 }
-
 function isIOS(){
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
-
 if(!isStandalone() && !sessionStorage.getItem("installBannerDismissed")){
   if(isIOS()){
     // iOS has no install prompt API — show manual instructions instead
@@ -776,7 +959,6 @@ if(!isStandalone() && !sessionStorage.getItem("installBannerDismissed")){
     });
   }
 }
-
 installBtn.addEventListener("click", async ()=>{
   if(!deferredInstallPrompt) return;
   deferredInstallPrompt.prompt();
@@ -784,12 +966,10 @@ installBtn.addEventListener("click", async ()=>{
   deferredInstallPrompt = null;
   installBanner.style.display = "none";
 });
-
 installDismiss.addEventListener("click", ()=>{
   installBanner.style.display = "none";
   sessionStorage.setItem("installBannerDismissed", "1");
 });
-
 // Offline indicator
 const offlineTag = document.getElementById("offlineTag");
 function updateOnlineStatus(){
