@@ -4,6 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Timetable</title>
+
+<!-- PWA: manifest -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1c2321">
+
+<!-- Icons: favicons -->
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+
+<!-- iOS home screen support -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Timetable">
+
+<!-- Android/Chrome -->
+<meta name="mobile-web-app-capable" content="yes">
+
 <style>
   :root{
     --ink:#1c2321;
@@ -319,6 +337,48 @@
     text-align:center;font-family:'Courier New',monospace;
     font-size:11px;color:#999;margin-top:34px;
   }
+
+  /* Install / offline banner */
+  #installBanner{
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:var(--radius);
+    padding:10px 14px;
+    margin-bottom:16px;
+    font-size:13px;
+  }
+  #installBanner button{
+    font-family:inherit;
+    font-weight:700;
+    font-size:12.5px;
+    background:var(--accent2);
+    color:white;
+    border:none;
+    border-radius:7px;
+    padding:7px 12px;
+    cursor:pointer;
+  }
+  #installBanner .dismiss{
+    background:transparent;
+    color:var(--paper);
+    opacity:.6;
+    padding:7px 8px;
+  }
+  #offlineTag{
+    display:none;
+    font-family:'Courier New',monospace;
+    font-size:11px;
+    background:var(--accent3);
+    color:white;
+    padding:3px 9px;
+    border-radius:6px;
+    margin-bottom:14px;
+    width:max-content;
+  }
 </style>
 </head>
 <body>
@@ -329,6 +389,15 @@
     <h1>Weekly Timetable</h1>
     <div class="sub">w.e.f. 13 July 2026 · Rev 0</div>
   </header>
+
+  <div id="installBanner">
+    <span id="installBannerText">Add this to your home screen for quick access.</span>
+    <span style="display:flex;gap:6px;">
+      <button id="installBtn">Add</button>
+      <button class="dismiss" id="installDismiss">✕</button>
+    </span>
+  </div>
+  <div id="offlineTag">⏻ Offline — showing saved data</div>
 
   <div class="toggle-row">
     <div class="toggle" id="batchToggle">
@@ -663,6 +732,72 @@ document.getElementById("viewToggle").addEventListener("click", (e)=>{
 
 buildFaculty();
 render();
+
+/* ===================== PWA: install + offline support ===================== */
+
+// Register service worker for offline caching
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(err=>{
+      console.log("Service worker registration failed:", err);
+    });
+  });
+}
+
+// Android/Chrome: capture the native install prompt and show our own banner
+let deferredInstallPrompt = null;
+const installBanner = document.getElementById("installBanner");
+const installBtn = document.getElementById("installBtn");
+const installDismiss = document.getElementById("installDismiss");
+const installBannerText = document.getElementById("installBannerText");
+
+function isStandalone(){
+  return window.matchMedia("(display-mode: standalone)").matches
+    || window.navigator.standalone === true; // iOS Safari flag
+}
+
+function isIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+if(!isStandalone() && !sessionStorage.getItem("installBannerDismissed")){
+  if(isIOS()){
+    // iOS has no install prompt API — show manual instructions instead
+    installBannerText.textContent = "Tap Share, then \"Add to Home Screen\" to install.";
+    installBtn.style.display = "none";
+    installBanner.style.display = "flex";
+  } else {
+    window.addEventListener("beforeinstallprompt", (e)=>{
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      installBannerText.textContent = "Add this to your home screen for quick access.";
+      installBtn.style.display = "";
+      installBanner.style.display = "flex";
+    });
+  }
+}
+
+installBtn.addEventListener("click", async ()=>{
+  if(!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  installBanner.style.display = "none";
+});
+
+installDismiss.addEventListener("click", ()=>{
+  installBanner.style.display = "none";
+  sessionStorage.setItem("installBannerDismissed", "1");
+});
+
+// Offline indicator
+const offlineTag = document.getElementById("offlineTag");
+function updateOnlineStatus(){
+  offlineTag.style.display = navigator.onLine ? "none" : "block";
+}
+window.addEventListener("online", updateOnlineStatus);
+window.addEventListener("offline", updateOnlineStatus);
+updateOnlineStatus();
 </script>
 </body>
 </html>
